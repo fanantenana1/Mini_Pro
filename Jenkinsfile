@@ -1,62 +1,43 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKER_IMAGE = 'flask_hello'
-        CONTAINER_NAME = 'flask_prod'
-        HOST_PORT = '5001'
-        CONTAINER_PORT = '5000'
-    }
-
     stages {
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/fanantenana1/Mini_Pro.git', branch: 'main'
+                git branch: 'main', url: 'https://github.com/fanantenana1/Mini_Pro.git'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build Docker image') {
             steps {
-                script {
-                    sh 'docker build -t $DOCKER_IMAGE Mini_Pro/flask_app/'
+                dir('flask_app') {
+                    sh 'docker build -t flask_hello .'
                 }
             }
         }
 
-        stage('Stop and Remove Old Container') {
+        stage('Run Tests') {
             steps {
-                script {
-                    sh '''
-                    if [ "$(docker ps -q -f name=$CONTAINER_NAME)" ]; then
-                        echo "Stopping running container..."
-                        docker stop $CONTAINER_NAME
-                    fi
-
-                    if [ "$(docker ps -a -q -f name=$CONTAINER_NAME)" ]; then
-                        echo "Removing old container..."
-                        docker rm $CONTAINER_NAME
-                    fi
-                    '''
+                dir('flask_app') {
+                    sh 'docker run --rm flask_hello pytest test.py'
                 }
             }
         }
 
-        stage('Run Docker Container') {
+        stage('Run Container') {
             steps {
-                script {
-                    sh '''
-                    docker run -d -p $HOST_PORT:$CONTAINER_PORT --name $CONTAINER_NAME $DOCKER_IMAGE
-                    '''
-                }
+                sh 'docker run -d --name flask_prod -p 5000:5000 flask_hello'
             }
         }
+    }
 
-        stage('Post-Run Check') {
-            steps {
-                script {
-                    sh 'docker ps -f name=$CONTAINER_NAME'
-                }
-            }
+    post {
+        always {
+            sh 'docker ps -a'
+        }
+        cleanup {
+            sh 'docker stop flask_prod || true'
+            sh 'docker rm flask_prod || true'
         }
     }
 }
