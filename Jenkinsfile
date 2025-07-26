@@ -1,50 +1,48 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = 'flask_hello'
+        CONTAINER_NAME = 'flask_prod'
+        PORT_OUT = '5001'
+        PORT_IN = '5000'
+    }
+
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                git url: 'https://github.com/fanantenana1/Mini_Pro.git', branch: 'main'
             }
         }
 
-        stage('Build Docker image') {
+        stage('Build Docker Image') {
             steps {
-                dir('flask_app') {
-                    sh 'docker build -t flask_hello .'
+                sh 'docker build -t $IMAGE_NAME ./Mini_Pro/flask_app/'
+            }
+        }
+
+        stage('Stop & Remove Old Container') {
+            steps {
+                script {
+                    sh '''
+                        docker stop $CONTAINER_NAME || true
+                        docker rm $CONTAINER_NAME || true
+                    '''
                 }
             }
         }
 
-        stage('Run Tests') {
+        stage('Run Docker Container') {
             steps {
-                dir('flask_app') {
-                    sh 'docker run --rm flask_hello pytest test.py'
-                }
+                sh 'docker run -d --name $CONTAINER_NAME -p $PORT_OUT:$PORT_IN $IMAGE_NAME'
             }
         }
 
-        stage('Clean previous containers') {
+        stage('Health Check') {
             steps {
-                sh '''
-                docker ps -q --filter "name=flask_hello_test" | grep -q . && docker stop flask_hello_test || true
-                docker ps -a -q --filter "name=flask_hello_test" | grep -q . && docker rm flask_hello_test || true
-                docker ps -q --filter "name=flask_prod" | grep -q . && docker stop flask_prod || true
-                docker ps -a -q --filter "name=flask_prod" | grep -q . && docker rm flask_prod || true
-                '''
+                sh 'sleep 5' // laisser le temps au conteneur de démarrer
+                sh 'curl -f http://localhost:$PORT_OUT || (echo "Flask server failed to start." && exit 1)'
             }
-        }
-
-        stage('Run Container') {
-            steps {
-                sh 'docker run -d --name flask_prod -p 5000:5000 flask_hello'
-            }
-        }
-    }
-
-    post {
-        always {
-            sh 'docker ps -a'
         }
     }
 }
