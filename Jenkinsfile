@@ -2,26 +2,21 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "flask_hello"
-        CONTAINER_NAME = "flask_prod"
-        HOST_PORT = "5001"
-        CONTAINER_PORT = "5000"
+        IMAGE_NAME = "flask_app_image"
+        CONTAINER_NAME = "flask_app_container"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
-                git url: 'https://github.com/fanantenana1/salama_java.git', branch: 'main'
+                git url: 'https://github.com/fanantenana1/Mini_Pro.git', branch: 'main'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                dir('salama_java/flask_app') {
-                    script {
-                        sh "docker build -t ${IMAGE_NAME} ."
-                    }
+                dir('flask_app') {
+                    sh "docker build -t ${IMAGE_NAME} ."
                 }
             }
         }
@@ -29,39 +24,30 @@ pipeline {
         stage('Stop & Remove Old Container') {
             steps {
                 script {
-                    // Forcer l'arrêt et suppression du container s'il existe
-                    sh "docker rm -f ${CONTAINER_NAME} || true"
+                    sh "docker stop ${CONTAINER_NAME} || true"
+                    sh "docker rm ${CONTAINER_NAME} || true"
                 }
             }
         }
 
         stage('Run Docker Container') {
             steps {
-                script {
-                    sh """
-                        docker run -d --name ${CONTAINER_NAME} -p ${HOST_PORT}:${CONTAINER_PORT} ${IMAGE_NAME}
-                    """
-                }
+                sh "docker run -d --name ${CONTAINER_NAME} -p 5000:5000 ${IMAGE_NAME}"
             }
         }
 
         stage('Health Check') {
             steps {
-                script {
-                    sh 'sleep 5' // Attendre quelques secondes que le service démarre
-                    sh "curl --fail http://localhost:${HOST_PORT} || (echo 'Health check failed' && exit 1)"
-                }
+                sh '''
+                sleep 5
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/)
+                if [ "$STATUS" -ne 200 ]; then
+                    echo "Health check failed with status $STATUS"
+                    exit 1
+                fi
+                echo "Health check passed with status $STATUS"
+                '''
             }
-        }
-
-    }
-
-    post {
-        success {
-            echo '✅ Déploiement réussi !'
-        }
-        failure {
-            echo '❌ Une erreur est survenue pendant le pipeline.'
         }
     }
 }
