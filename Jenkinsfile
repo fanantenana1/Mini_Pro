@@ -4,6 +4,7 @@ pipeline {
     environment {
         IMAGE_NAME = "flask_app_image"
         CONTAINER_NAME = "flask_app_container"
+        PORT = "5001"
     }
 
     stages {
@@ -32,7 +33,7 @@ pipeline {
 
         stage('Run Docker Container') {
             steps {
-                sh "docker run -d --name ${CONTAINER_NAME} -p 5000:5000 ${IMAGE_NAME}"
+                sh "docker run -d --name ${CONTAINER_NAME} -p ${PORT}:5000 ${IMAGE_NAME}"
             }
         }
 
@@ -40,7 +41,7 @@ pipeline {
             steps {
                 sh '''
                 sleep 5
-                STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/)
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5001/)
                 if [ "$STATUS" -ne 200 ]; then
                     echo "Health check failed with status $STATUS"
                     exit 1
