@@ -10,13 +10,17 @@ pipeline {
 
         stage('Build Docker image') {
             steps {
-                sh 'docker build -t flask_hello .'
+                dir('flask_app') {
+                    sh 'docker build -t flask_hello .'
+                }
             }
         }
 
         stage('Run Tests') {
             steps {
-                sh 'docker run --rm flask_hello pytest test.py'
+                dir('flask_app') {
+                    sh 'docker run --rm flask_hello pytest test.py'
+                }
             }
         }
 
