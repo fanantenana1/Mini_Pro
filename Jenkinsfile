@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/fanantenana1/Mini_Pro.git'
+                checkout scm
             }
         }
 
@@ -26,7 +26,14 @@ pipeline {
 
         stage('Run Container') {
             steps {
-                sh 'docker run -d --name flask_prod -p 5000:5000 flask_hello'
+                script {
+                    // Stop et supprimer le conteneur s'il existe déjà
+                    sh 'docker stop flask_prod || true'
+                    sh 'docker rm flask_prod || true'
+
+                    // Lancer le conteneur avec le port mappé 5001:5000
+                    sh 'docker run -d --name flask_prod -p 5001:5000 flask_hello'
+                }
             }
         }
     }
@@ -34,10 +41,6 @@ pipeline {
     post {
         always {
             sh 'docker ps -a'
-        }
-        cleanup {
-            sh 'docker stop flask_prod || true'
-            sh 'docker rm flask_prod || true'
         }
     }
 }
