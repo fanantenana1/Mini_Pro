@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pythontest
+  labels: { app: pythontest }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: pythontest } }
+  template:
+    metadata: { labels: { app: pythontest } }
+    spec:
+      containers:
+        - name: pythontest
+          image: localhost:4000/pythontest:latest
+          ports: [{ containerPort: 5000 }]
