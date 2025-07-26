@@ -2,6 +2,12 @@ pipeline {
     agent any
 
     stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/fanantenana1/Mini_Pro.git'
+            }
+        }
+
         stage('Build Docker image') {
             steps {
                 sh 'docker build -t flask_hello .'
