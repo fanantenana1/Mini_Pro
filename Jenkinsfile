@@ -24,16 +24,20 @@ pipeline {
             }
         }
 
+        stage('Clean previous containers') {
+            steps {
+                sh '''
+                docker ps -q --filter "name=flask_hello_test" | grep -q . && docker stop flask_hello_test || true
+                docker ps -a -q --filter "name=flask_hello_test" | grep -q . && docker rm flask_hello_test || true
+                docker ps -q --filter "name=flask_prod" | grep -q . && docker stop flask_prod || true
+                docker ps -a -q --filter "name=flask_prod" | grep -q . && docker rm flask_prod || true
+                '''
+            }
+        }
+
         stage('Run Container') {
             steps {
-                script {
-                    // Stop et supprimer le conteneur s'il existe déjà
-                    sh 'docker stop flask_prod || true'
-                    sh 'docker rm flask_prod || true'
-
-                    // Lancer le conteneur avec le port mappé 5001:5000
-                    sh 'docker run -d --name flask_prod -p 5001:5000 flask_hello'
-                }
+                sh 'docker run -d --name flask_prod -p 5000:5000 flask_hello'
             }
         }
     }
