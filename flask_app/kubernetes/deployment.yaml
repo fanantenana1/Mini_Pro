@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
         - name: pythontest
-          image: localhost:4000/flask_hello:latest
+          image: flask_hello:latest
           ports:
             - containerPort: 5000
