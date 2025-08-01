@@ -1,21 +1,40 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pythontest
+  name: flask-hello
   labels:
-    app: pythontest
+    app: flask-hello
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: pythontest
+      app: flask-hello
   template:
     metadata:
       labels:
-        app: pythontest
+        app: flask-hello
     spec:
       containers:
-        - name: pythontest
+        - name: flask-hello
           image: flask_hello:latest
           ports:
             - containerPort: 5000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 20
