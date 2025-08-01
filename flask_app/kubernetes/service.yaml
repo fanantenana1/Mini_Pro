@@ -1,7 +1,12 @@
 apiVersion: v1
 kind: Service
-metadata: { name: pythontest }
+metadata:
+  name: flask-service
 spec:
+  selector:
+    app: pythontest
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
   type: NodePort
-  selector: { app: pythontest }
-  ports: [{ port: 5000, nodePort: 31000 }]
