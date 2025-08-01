@@ -27,10 +27,20 @@ pipeline {
         stage('Clean previous containers') {
             steps {
                 sh '''
+                # Stop and remove test container if exists
                 docker ps -q --filter "name=flask_hello_test" | grep -q . && docker stop flask_hello_test || true
                 docker ps -a -q --filter "name=flask_hello_test" | grep -q . && docker rm flask_hello_test || true
+
+                # Stop and remove production container if exists
                 docker ps -q --filter "name=flask_prod" | grep -q . && docker stop flask_prod || true
                 docker ps -a -q --filter "name=flask_prod" | grep -q . && docker rm flask_prod || true
+
+                # Stop and remove any container using port 5001
+                CONTAINER_ID=$(docker ps -q --filter "publish=5001")
+                if [ -n "$CONTAINER_ID" ]; then
+                    docker stop $CONTAINER_ID
+                    docker rm $CONTAINER_ID
+                fi
                 '''
             }
         }
