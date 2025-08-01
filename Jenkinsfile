@@ -57,14 +57,13 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Kubernetes Deploy') {
             steps {
-                dir('kubernetes') {
-                    sh 'kubectl apply -f flask_app/kubernetes/deployment.yaml'
-                    sh 'kubectl apply -f flask_app/kubernetes/service.yaml'
-                }
+                echo 'Déploiement sur Kubernetes...'
+                sh 'kubectl apply -f flask_app/kubernetes/'
             }
         }
+
     }
 
     post {
