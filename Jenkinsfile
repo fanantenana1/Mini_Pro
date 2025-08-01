@@ -53,20 +53,22 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
-            steps {
-                withEnv(["KUBECONFIG=$KUBECONFIG"]) {
-                    sh 'kubectl apply -f deployment.yaml'
+            stage('Deploy to Kubernetes') {
+                steps {
+                    withEnv(["KUBECONFIG=$KUBECONFIG"]) {
+                        dir('flask_app/kubernetes') {
+                            sh 'kubectl apply -f .'
+                        }
+                    }
                 }
             }
         }
-    }
-
-    post {
-        always {
-            withEnv(["KUBECONFIG=$KUBECONFIG"]) {
-                sh 'kubectl get pods'
+        post {
+            always {
+                withEnv(["KUBECONFIG=$KUBECONFIG"]) {
+                    sh 'kubectl get pods || echo "kubectl failed — check if Minikube is running"'
+                }
             }
         }
-    }
+
 }
