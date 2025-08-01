@@ -1,6 +1,13 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "flask_hello"
+        IMAGE_TAG = "latest"
+        LOCAL_REGISTRY = "localhost:4000"
+        FULL_IMAGE_NAME = "${LOCAL_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -11,7 +18,7 @@ pipeline {
         stage('Build Docker image') {
             steps {
                 dir('flask_app') {
-                    sh 'docker build -t flask_hello .'
+                    sh 'docker build -t $IMAGE_NAME .'
                 }
             }
         }
@@ -19,7 +26,7 @@ pipeline {
         stage('Run Tests') {
             steps {
                 dir('flask_app') {
-                    sh 'docker run --rm flask_hello pytest test.py'
+                    sh 'docker run --rm $IMAGE_NAME pytest test.py'
                 }
             }
         }
@@ -27,27 +34,35 @@ pipeline {
         stage('Clean previous containers') {
             steps {
                 sh '''
-                # Stop and remove test container if exists
-                docker ps -q --filter "name=flask_hello_test" | grep -q . && docker stop flask_hello_test || true
-                docker ps -a -q --filter "name=flask_hello_test" | grep -q . && docker rm flask_hello_test || true
-
-                # Stop and remove production container if exists
-                docker ps -q --filter "name=flask_prod" | grep -q . && docker stop flask_prod || true
-                docker ps -a -q --filter "name=flask_prod" | grep -q . && docker rm flask_prod || true
-
-                # Stop and remove any container using port 5001
-                CONTAINER_ID=$(docker ps -q --filter "publish=5001")
-                if [ -n "$CONTAINER_ID" ]; then
-                    docker stop $CONTAINER_ID
-                    docker rm $CONTAINER_ID
-                fi
+                    docker ps -q --filter "name=flask_hello_test" | grep -q . && docker stop flask_hello_test || true
+                    docker ps -a -q --filter "name=flask_hello_test" | grep -q . && docker rm flask_hello_test || true
+                    docker ps -q --filter "name=flask_prod" | grep -q . && docker stop flask_prod || true
+                    docker ps -a -q --filter "name=flask_prod" | grep -q . && docker rm flask_prod || true
                 '''
             }
         }
 
         stage('Run Container') {
             steps {
-                sh 'docker run -d --name flask_prod -p 5001:5000 flask_hello'
+                sh 'docker run -d --name flask_prod -p 5000:5000 $IMAGE_NAME'
+            }
+        }
+
+        stage('Push Image to Local Registry') {
+            steps {
+                sh '''
+                    docker tag $IMAGE_NAME $FULL_IMAGE_NAME
+                    docker push $FULL_IMAGE_NAME
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                dir('kubernetes') {
+                    sh 'kubectl apply -f deployment.yaml'
+                    sh 'kubectl apply -f service.yaml'
+                }
             }
         }
     }
