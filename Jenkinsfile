@@ -3,7 +3,8 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = 'flask-app:latest'
-        MINIKUBE_HOME = "${HOME}/.minikube"
+        MINIKUBE_HOME = '/home/m3/.minikube'
+        KUBECONFIG = '/home/m3/.kube/config'
     }
 
     stages {
@@ -41,8 +42,17 @@ pipeline {
             steps {
                 sh '''
                     echo "Running tests..."
-                    # Ajoute tes commandes de test ici, exemple :
+                    # Ajoute ici des tests si nécessaires
                     # docker run --rm ${DOCKER_IMAGE} pytest
+                '''
+            }
+        }
+
+        stage('Fix Permissions') {
+            steps {
+                sh '''
+                    echo "🔧 Correction des permissions Minikube..."
+                    sudo chown -R jenkins:jenkins /home/m3/.minikube /home/m3/.kube
                 '''
             }
         }
@@ -62,8 +72,8 @@ pipeline {
             steps {
                 sh '''
                     echo "🚀 Déploiement sur Minikube..."
-                    kubectl apply -f flask_app/kubernetes/deployment.yaml
-                    kubectl apply -f flask_app/kubernetes/service.yaml
+                    kubectl apply -f flask_app/kube/deployment.yaml
+                    kubectl apply -f flask_app/kube/service.yaml
                 '''
             }
         }
