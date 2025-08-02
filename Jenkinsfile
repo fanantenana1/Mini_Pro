@@ -1,12 +1,10 @@
 pipeline {
     agent any
-
     environment {
         DOCKER_IMAGE = "flask_hello:latest"
-        DOCKERHUB_USER = "ton_dockerhub"
-        KUBECONFIG = '/var/lib/jenkins/.kube/config'
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
+        MINIKUBE_HOME = "/var/lib/jenkins"
     }
-
     stages {
         stage('Checkout') {
             steps {
@@ -17,10 +15,11 @@ pipeline {
         stage('Build Image in Minikube') {
             steps {
                 script {
-                    def dockerEnv = sh(script: "minikube docker-env --shell bash", returnStdout: true).trim()
+                    // Charger correctement l'environnement Docker de Minikube
+                    def dockerEnv = sh(script: "sudo -u jenkins minikube docker-env --shell bash", returnStdout: true).trim()
                     sh """
                         ${dockerEnv}
-                        docker build -t ${env.DOCKER_IMAGE} ./flask_app
+                        docker build -t ${DOCKER_IMAGE} ./flask_app
                     """
                 }
             }
