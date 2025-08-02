@@ -3,62 +3,69 @@ pipeline {
 
     environment {
         TIMESTAMP = new Date().format("yyyyMMdd_HHmmss")
-        DOCKER_IMAGE_NAME = "flask_hello:${TIMESTAMP}"
+        IMAGE_NAME = "flask_hello:${TIMESTAMP}"
         TAR_FILE = "flask_hello_${TIMESTAMP}.tar"
         KUBECONFIG = '/home/m3/.kube/config'
     }
 
+    options {
+        timeout(time: 15, unit: 'MINUTES') // ⏳ Limite globale du pipeline
+        skipDefaultCheckout(true)
+    }
+
     stages {
+
         stage('Checkout') {
             steps {
+                echo "📥 Récupération du code source..."
                 checkout scm
             }
         }
 
-        stage('Build Docker image (local)') {
+        stage('Clean Docker (Prebuild)') {
             steps {
-                dir('flask_app') {
-                    sh """
-                        echo "🧹 Nettoyage image et archive précédente"
-                        docker image rm -f ${DOCKER_IMAGE_NAME} || true
-                        rm -f ${TAR_FILE}
-
-                        echo "🐳 Construction de l'image Docker"
-                        docker build -t ${DOCKER_IMAGE_NAME} .
-
-                        echo "📦 Sauvegarde de l'image au format .tar"
-                        docker save ${DOCKER_IMAGE_NAME} -o ${TAR_FILE}
-                    """
-                }
-            }
-        }
-
-        stage('Inject image into Minikube Docker') {
-            steps {
-                dir('flask_app') {
-                    sh """
-                        echo "🔄 Injection de l'image dans Minikube..."
-                        eval \$(minikube docker-env) || echo "⚠️ minikube docker-env failed"
-                        docker load -i ${TAR_FILE} || echo "⚠️ docker load failed"
-                    """
-                }
-            }
-        }
-
-        stage('Run Tests inside container') {
-            steps {
-                dir('flask_app') {
-                    sh "docker run --rm ${DOCKER_IMAGE_NAME} pytest test.py || echo '⚠️ Tests failed'"
-                }
-            }
-        }
-
-        stage('Clean previous containers') {
-            steps {
+                echo "🧹 Pré-nettoyage des anciennes ressources Docker"
                 sh '''
-                    echo "🧹 Suppression des anciens containers"
-                    docker rm -f $(docker ps -aq) || echo "No containers to remove"
+                    docker container prune -f
+                    docker image prune -f
                 '''
+            }
+        }
+
+        stage('Build Docker image') {
+            steps {
+                dir('flask_app') {
+                    sh """
+                        echo "🐳 Construction de l'image optimisée"
+                        docker build --no-cache --pull -t ${IMAGE_NAME} .
+                    """
+                }
+            }
+        }
+
+        stage('Test Container (Pytest)') {
+            steps {
+                dir('flask_app') {
+                    sh """
+                        echo "🧪 Lancement des tests dans le conteneur"
+                        docker run --rm ${IMAGE_NAME} pytest test.py || echo '⚠️ Tests failed'
+                    """
+                }
+            }
+        }
+
+        stage('Load into Minikube') {
+            steps {
+                dir('flask_app') {
+                    sh """
+                        echo "📦 Export de l'image en .tar"
+                        docker save ${IMAGE_NAME} -o ${TAR_FILE}
+
+                        echo "♻️ Chargement de l'image dans Minikube"
+                        eval \$(minikube docker-env)
+                        docker load -i ${TAR_FILE}
+                    """
+                }
             }
         }
 
@@ -66,8 +73,20 @@ pipeline {
             steps {
                 withEnv(["KUBECONFIG=$KUBECONFIG"]) {
                     dir('flask_app/kubernetes') {
+                        echo "🚀 Déploiement de l'application dans Kubernetes"
                         sh 'kubectl apply -f .'
                     }
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                withEnv(["KUBECONFIG=$KUBECONFIG"]) {
+                    sh '''
+                        echo "🔍 Vérification de l'état des pods"
+                        kubectl get pods -o wide
+                    '''
                 }
             }
         }
@@ -75,22 +94,19 @@ pipeline {
 
     post {
         always {
-            withEnv(["KUBECONFIG=$KUBECONFIG"]) {
-                sh '''
-                    echo "🔍 Vérification des pods dans le cluster"
-                    kubectl get pods || echo "⚠️ kubectl failed — check if Minikube is running"
-                '''
-            }
-
+            echo "🧽 Nettoyage final (Docker et fichiers temporaires)"
             sh '''
-                echo "🧽 Nettoyage des ressources Docker inutilisées"
-                docker image prune -f
                 docker container prune -f
+                docker image prune -f
                 docker volume prune -f
-
-                echo "🧹 Suppression des vieux fichiers .tar"
                 find flask_app/ -name "*.tar" -mtime +1 -delete
             '''
+        }
+        failure {
+            echo "❌ Le pipeline a échoué. Consultez les logs pour plus de détails."
+        }
+        success {
+            echo "✅ Déploiement réussi !"
         }
     }
 }
