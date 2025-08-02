@@ -20,14 +20,20 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-          steps {
-            sh '''
-              docker build -t flask-app:latest ./flask_app
-              docker tag flask-app:latest localhost:5000/flask-app:latest
-              docker push localhost:5000/flask-app:latest
-            '''
-          }
+        stage('Build Docker image') {
+            steps {
+                dir('flask_app') {
+                    sh 'docker build -t flask_hello .'
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                dir('flask_app') {
+                    sh 'docker run --rm flask_hello pytest test.py'
+                }
+            }
         }
 
         stage('Verify Minikube & Permissions') {
