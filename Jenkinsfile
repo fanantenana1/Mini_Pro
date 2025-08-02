@@ -47,7 +47,7 @@ pipeline {
                 '''
             }
         }
-
+        """
         stage('Fix Permissions') {
             steps {
                 sh '''
@@ -56,7 +56,7 @@ pipeline {
                 '''
             }
         }
-
+        """
         stage('Verify Minikube & Permissions') {
             steps {
                 sh '''
