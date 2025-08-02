@@ -47,16 +47,6 @@ pipeline {
                 '''
             }
         }
-        """
-        stage('Fix Permissions') {
-            steps {
-                sh '''
-                    echo "🔧 Correction des permissions Minikube..."
-                    sudo chown -R jenkins:jenkins /home/m3/.minikube /home/m3/.kube
-                '''
-            }
-        }
-        """
         stage('Verify Minikube & Permissions') {
             steps {
                 sh '''
