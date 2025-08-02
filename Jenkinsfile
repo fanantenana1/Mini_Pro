@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKER_IMAGE = "flask_hello:latest"
-        KUBECONFIG = '/home/jenkins/.kube/config'
-    }
-
     stages {
         stage('Checkout') {
             steps {
@@ -13,46 +8,43 @@ pipeline {
             }
         }
 
-        stage('Use Minikube Docker') {
+        stage('Build Docker image') {
             steps {
-                script {
-                    sh 'eval $(minikube docker-env) && echo "Minikube Docker Env Activated"'
+                dir('flask_app') {
+                    sh 'docker build -t flask_hello .'
                 }
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Run Tests') {
             steps {
-                script {
-                    sh 'eval $(minikube docker-env) && docker build -t ${DOCKER_IMAGE} ./flask_app'
+                dir('flask_app') {
+                    sh 'docker run --rm flask_hello pytest test.py'
                 }
             }
         }
 
-        stage('Test Docker Container') {
+        stage('Clean previous containers') {
             steps {
-                script {
-                    sh 'eval $(minikube docker-env) && docker run --rm ${DOCKER_IMAGE} pytest flask_app/test.py'
-                }
+                sh '''
+                docker ps -q --filter "name=flask_hello_test" | grep -q . && docker stop flask_hello_test || true
+                docker ps -a -q --filter "name=flask_hello_test" | grep -q . && docker rm flask_hello_test || true
+                docker ps -q --filter "name=flask_prod" | grep -q . && docker stop flask_prod || true
+                docker ps -a -q --filter "name=flask_prod" | grep -q . && docker rm flask_prod || true
+                '''
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Run Container') {
             steps {
-                script {
-                    sh 'kubectl apply -f flask_app/kubernetes/deployment.yaml'
-                    sh 'kubectl apply -f flask_app/kubernetes/service.yaml'
-                }
+                sh 'docker run -d --name flask_prod -p 5001:5000 flask_hello'
             }
         }
     }
 
     post {
         always {
-            script {
-                // S'affiche même si le pipeline échoue
-                sh 'kubectl get pods'
-            }
+            sh 'docker ps -a'
         }
     }
 }
