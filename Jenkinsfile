@@ -2,10 +2,8 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "flask_hello"
-        IMAGE_TAG = "latest"
-        LOCAL_REGISTRY = "localhost:4000"
-        FULL_IMAGE_NAME = "${LOCAL_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+        DOCKER_IMAGE = "flask_hello:latest"
+        KUBECONFIG = '/home/jenkins/.kube/config'
     }
 
     stages {
@@ -15,52 +13,46 @@ pipeline {
             }
         }
 
-        stage('Build Docker image') {
+        stage('Use Minikube Docker') {
             steps {
-                dir('flask_app') {
-                    sh 'docker build -t $IMAGE_NAME .'
+                script {
+                    sh 'eval $(minikube docker-env) && echo "Minikube Docker Env Activated"'
                 }
             }
         }
 
-        stage('Run Tests') {
+        stage('Build Docker Image') {
             steps {
-                dir('flask_app') {
-                    sh 'docker run --rm $IMAGE_NAME pytest test.py'
+                script {
+                    sh 'eval $(minikube docker-env) && docker build -t ${DOCKER_IMAGE} ./flask_app'
                 }
             }
         }
 
-        stage('Clean previous containers') {
+        stage('Test Docker Container') {
             steps {
-                sh '''
-                    docker ps -q --filter "name=flask_hello_test" | grep -q . && docker stop flask_hello_test || true
-                    docker ps -a -q --filter "name=flask_hello_test" | grep -q . && docker rm flask_hello_test || true
-                    docker ps -q --filter "name=flask_prod" | grep -q . && docker stop flask_prod || true
-                    docker ps -a -q --filter "name=flask_prod" | grep -q . && docker rm flask_prod || true
-                '''
+                script {
+                    sh 'eval $(minikube docker-env) && docker run --rm ${DOCKER_IMAGE} pytest flask_app/test.py'
+                }
             }
         }
 
-        stage('Run Container') {
+        stage('Deploy to Kubernetes') {
             steps {
-                sh 'docker run -d --name flask_prod -p 5000:5000 $IMAGE_NAME'
-            }
-        }
-
-        stage('Push Image to Local Registry') {
-            steps {
-                sh '''
-                    docker tag $IMAGE_NAME $FULL_IMAGE_NAME
-                    docker push $FULL_IMAGE_NAME
-                '''
+                script {
+                    sh 'kubectl apply -f flask_app/kubernetes/deployment.yaml'
+                    sh 'kubectl apply -f flask_app/kubernetes/service.yaml'
+                }
             }
         }
     }
 
     post {
         always {
-            sh 'docker ps -a'
+            script {
+                // S'affiche même si le pipeline échoue
+                sh 'kubectl get pods'
+            }
         }
     }
 }
