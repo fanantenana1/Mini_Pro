@@ -23,7 +23,7 @@ pipeline {
         stage('Build Docker image') {
             steps {
                 dir('flask_app') {
-                    sh 'docker build -t flask_hello .'
+                    sh 'docker build -t flask-app:latest ./flask_app'
                 }
             }
         }
