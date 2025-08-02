@@ -1,50 +1,86 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "flask-app"
+        DOCKER_TAG = "latest"
+        DOCKER_REGISTRY = "localhost:5000"
+        KUBECONFIG = "${HOME}/.kube/config"
+    }
+
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
 
-        stage('Build Docker image') {
-            steps {
-                dir('flask_app') {
-                    sh 'docker build -t flask_hello .'
-                }
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                dir('flask_app') {
-                    sh 'docker run --rm flask_hello pytest test.py'
-                }
-            }
-        }
-
-        stage('Clean previous containers') {
+        stage('Cleanup Docker') {
             steps {
                 sh '''
-                docker ps -q --filter "name=flask_hello_test" | grep -q . && docker stop flask_hello_test || true
-                docker ps -a -q --filter "name=flask_hello_test" | grep -q . && docker rm flask_hello_test || true
-                docker ps -q --filter "name=flask_prod" | grep -q . && docker stop flask_prod || true
-                docker ps -a -q --filter "name=flask_prod" | grep -q . && docker rm flask_prod || true
+                    docker container prune -f
+                    docker image prune -f
+                    docker volume prune -f
                 '''
             }
         }
 
-        stage('Run Container') {
+        stage('Build Docker Image') {
             steps {
-                sh 'docker run -d --name flask_prod -p 5001:5000 flask_hello'
+                sh '''
+                    docker build -t $IMAGE_NAME:$DOCKER_TAG .
+                    docker tag $IMAGE_NAME:$DOCKER_TAG $DOCKER_REGISTRY/$IMAGE_NAME:$DOCKER_TAG
+                    docker push $DOCKER_REGISTRY/$IMAGE_NAME:$DOCKER_TAG
+                '''
             }
         }
+
+        stage('Verify Minikube & Permissions') {
+            steps {
+                sh '''
+                    if ! minikube status | grep -q "Running"; then
+                        minikube start --driver=docker
+                    fi
+
+                    if [ ! -r "$KUBECONFIG" ]; then
+                        echo "Fixing kubeconfig permissions..."
+                        sudo chown $USER $KUBECONFIG
+                        chmod 600 $KUBECONFIG
+                    fi
+
+                    kubectl config use-context minikube
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                    kubectl delete deployment flask-deploy --ignore-not-found=true
+                    kubectl apply -f k8s/deployment.yaml
+                    kubectl apply -f k8s/service.yaml
+                '''
+            }
+        }
+
+        stage('Post-deploy Checks') {
+            steps {
+                sh '''
+                    kubectl rollout status deployment/flask-deploy
+                    kubectl get pods
+                    kubectl get svc
+                '''
+            }
+        }
+
     }
 
     post {
         always {
-            sh 'docker ps -a'
+            echo "✔️ Pipeline terminé. Nettoyage..."
+            sh '''
+                docker container prune -f
+                docker image prune -f
+                docker volume prune -f
+            '''
+        }
+        failure {
+            echo "❌ Échec du pipeline."
         }
     }
 }
