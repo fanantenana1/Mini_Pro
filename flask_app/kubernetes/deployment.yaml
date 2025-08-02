@@ -17,6 +17,7 @@ spec:
       containers:
         - name: flask-hello
           image: flask_hello:latest
+          imagePullPolicy: Never    # 🟢 IMPORTANT
           ports:
             - containerPort: 5000
           resources:
