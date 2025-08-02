@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE = "flask_hello:latest"
         DOCKERHUB_USER = "ton_dockerhub"
-        KUBECONFIG = '/home/m3/.kube/config'
+        KUBECONFIG = '/var/lib/jenkins/.kube/config'
     }
 
     stages {
@@ -17,10 +17,11 @@ pipeline {
         stage('Build Image in Minikube') {
             steps {
                 script {
-                    withEnv(["DOCKER_TLS_VERIFY=", "DOCKER_HOST=",
-                             "DOCKER_CERT_PATH=", "MINIKUBE_ACTIVE_DOCKERD=minikube"]) {
-                        sh 'eval $(minikube docker-env) && docker build -t $DOCKER_IMAGE ./flask_app'
-                    }
+                    def dockerEnv = sh(script: "minikube docker-env --shell bash", returnStdout: true).trim()
+                    sh """
+                        ${dockerEnv}
+                        docker build -t ${env.DOCKER_IMAGE} ./flask_app
+                    """
                 }
             }
         }
@@ -33,7 +34,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                withEnv(["KUBECONFIG=$KUBECONFIG"]) {
+                withEnv(["KUBECONFIG=${env.KUBECONFIG}"]) {
                     sh 'kubectl apply -f flask_app/kubernetes/deployment.yaml'
                     sh 'kubectl apply -f flask_app/kubernetes/service.yaml'
                 }
@@ -43,7 +44,7 @@ pipeline {
 
     post {
         always {
-            withEnv(["KUBECONFIG=$KUBECONFIG"]) {
+            withEnv(["KUBECONFIG=${env.KUBECONFIG}"]) {
                 sh 'kubectl get pods'
             }
         }
