@@ -21,13 +21,13 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-            steps {
-                sh '''
-                    docker build -t $IMAGE_NAME:$DOCKER_TAG .
-                    docker tag $IMAGE_NAME:$DOCKER_TAG $DOCKER_REGISTRY/$IMAGE_NAME:$DOCKER_TAG
-                    docker push $DOCKER_REGISTRY/$IMAGE_NAME:$DOCKER_TAG
-                '''
-            }
+          steps {
+            sh '''
+              docker build -t flask-app:latest ./flask_app
+              docker tag flask-app:latest localhost:5000/flask-app:latest
+              docker push localhost:5000/flask-app:latest
+            '''
+          }
         }
 
         stage('Verify Minikube & Permissions') {
