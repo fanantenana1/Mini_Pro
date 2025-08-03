@@ -141,10 +141,13 @@ pipeline {
                 }
             }
         }
-
-         stage('Déployer vers Nexus') {
+        stage('Push vers Nexus Docker Registry') {
             steps {
-                sh "${MAVEN_HOME}/bin/mvn deploy -DaltDeploymentRepository=nexus::default::http://localhost:8082/repository/maven-releases/"
+                sh """
+                    docker build -t localhost:8082/my-flask-app:latest .
+                    docker tag localhost:8082/my-flask-app:latest nexus-host:8082/my-flask-app:latest
+                    docker push nexus-host:8082/my-flask-app:latest
+                """
             }
         }
 
