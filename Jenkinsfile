@@ -141,18 +141,26 @@ pipeline {
                 }
             }
         }
-        stage('Push to Nexus') {
+        stage('Push Docker Image to Nexus') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'nexus_js', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: 'nexus-credentials', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                     script {
-                        sh "docker tag flask-hello:latest nexus.local:8082/repository/docker-hosted/flask-hello:latest"
-                        sh "echo ${NEXUS_PASS} | docker login nexus.local:8082/repository/docker-hosted -u ${NEXUS_USER} --password-stdin"
-                        sh "docker push nexus.local:8082/repository/docker-hosted/flask-hello:latest"
+                        def NEXUS_HOST = "192.168.101.11:8082" // 🔁 Remplacer par l’IP réelle
+        
+                        sh """
+                            echo 🔁 Tag de l’image...
+                            docker tag flask-hello:latest ${NEXUS_HOST}/repository/docker-hosted/flask-hello:latest
+        
+                            echo 🔐 Connexion à Nexus...
+                            echo "${NEXUS_PASS}" | docker login ${NEXUS_HOST}/repository/docker-hosted -u "${NEXUS_USER}" --password-stdin
+        
+                            echo 🚀 Envoi vers Nexus...
+                            docker push ${NEXUS_HOST}/repository/docker-hosted/flask-hello:latest
+                        """
                     }
                 }
             }
         }
-
 
         stage('🔎 Nexus Check') {
             steps {
