@@ -44,8 +44,21 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                    echo "Running tests..."
+                    echo "🧪 Tests unitaires en cours..."
                     # docker run --rm ${DOCKER_IMAGE} pytest
+                '''
+            }
+        }
+
+        stage('Test serveur') {
+            steps {
+                sh '''
+                    echo "🔬 Test du serveur Flask local..."
+                    docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE}
+                    sleep 5
+                    curl -I http://localhost:5000 || echo "❌ Serveur ne répond pas"
+                    docker stop test-server
+                    docker rm test-server
                 '''
             }
         }
@@ -90,6 +103,17 @@ pipeline {
                     kubectl get pods
                     kubectl get services
                 '''
+            }
+        }
+
+        stage('Pousser vers Docker Hub') {
+            steps {
+                withDockerRegistry(credentialsId: 'docker-hub-creds', url: '') {
+                    sh '''
+                        docker tag ${DOCKER_IMAGE} haaa012/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker push haaa012/${IMAGE_NAME}:${IMAGE_TAG}
+                    '''
+                }
             }
         }
     }
