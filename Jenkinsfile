@@ -20,12 +20,18 @@ pipeline {
 
         stage('📁 Checkout') {
             steps {
+                echo '======================'
+                echo '📁 Étape 1 : Clonage du code source'
+                echo '======================'
                 checkout scm
             }
         }
 
         stage('🔍 Analyse SonarQube') {
             steps {
+                echo '======================'
+                echo '🔍 Étape 2 : Analyse du code avec SonarQube'
+                echo '======================'
                 withSonarQubeEnv(SONARQUBE_ENV) {
                     sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.projectKey=salama_java -Dsonar.login=${SONAR_TOKEN}"
                 }
@@ -34,6 +40,9 @@ pipeline {
 
         stage('🧹 Docker Cleanup') {
             steps {
+                echo '======================'
+                echo '🧹 Étape 3 : Nettoyage Docker'
+                echo '======================'
                 sh '''
                     docker container prune -f
                     docker image prune -f
@@ -44,6 +53,9 @@ pipeline {
 
         stage('🔨 Docker Build') {
             steps {
+                echo '======================'
+                echo '🔨 Étape 4 : Construction de l’image Docker'
+                echo '======================'
                 dir('flask_app') {
                     sh "docker build -t ${DOCKER_IMAGE} ."
                 }
@@ -52,12 +64,18 @@ pipeline {
 
         stage('🧪 Tests unitaires') {
             steps {
+                echo '======================'
+                echo '🧪 Étape 5 : Exécution des tests unitaires'
+                echo '======================'
                 sh "docker run --rm ${DOCKER_IMAGE} pytest || echo '❌ Tests échoués'"
             }
         }
 
         stage('🧬 Test serveur Flask') {
             steps {
+                echo '======================'
+                echo '🧬 Étape 6 : Test du serveur Flask'
+                echo '======================'
                 sh '''
                     docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE}
                     sleep 5
@@ -70,9 +88,17 @@ pipeline {
 
         stage('🛡️ Minikube Check') {
             steps {
+                echo '======================'
+                echo '🛡️ Étape 7 : Vérification de Minikube'
+                echo '======================'
                 sh '''
+                    echo "✅ Vérification du fichier KUBECONFIG"
                     test -f "$KUBECONFIG" || exit 1
+
+                    echo "✅ Statut Minikube"
                     minikube status || exit 1
+
+                    echo "✅ Nœuds Kubernetes"
                     kubectl get nodes || exit 1
                 '''
             }
@@ -80,6 +106,9 @@ pipeline {
 
         stage('🚀 Deploy to Kubernetes') {
             steps {
+                echo '======================'
+                echo '🚀 Étape 8 : Déploiement dans le cluster Kubernetes'
+                echo '======================'
                 sh '''
                     kubectl apply -f flask_app/kubernetes/deployment.yaml
                     kubectl apply -f flask_app/kubernetes/service.yaml
@@ -89,6 +118,9 @@ pipeline {
 
         stage('📦 Push Docker Hub') {
             steps {
+                echo '======================'
+                echo '📦 Étape 9 : Push vers Docker Hub'
+                echo '======================'
                 withDockerRegistry(credentialsId: 'docker-hub-creds', url: '') {
                     sh '''
                         docker tag ${DOCKER_IMAGE} ${DOCKER_HUB}
@@ -100,6 +132,9 @@ pipeline {
 
         stage('📦 Push vers Nexus') {
             steps {
+                echo '======================'
+                echo '📦 Étape 10 : Push vers Nexus'
+                echo '======================'
                 script {
                     docker.withRegistry(NEXUS_REPO, NEXUS_CREDS) {
                         def appImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
@@ -111,8 +146,12 @@ pipeline {
 
         stage('🔎 Nexus Check') {
             steps {
+                echo '======================'
+                echo '🔎 Étape 11 : Vérification du dépôt Nexus'
+                echo '======================'
                 sh '''
-                    curl -s -I ${NEXUS_REPO}/repository/maven-releases/com/example/salama-java/${IMAGE_TAG}/salama-java-${IMAGE_TAG}.jar || echo "❌ Artefact Nexus manquant"
+                    curl -s -I ${NEXUS_REPO}/repository/maven-releases/com/example/salama-java/${IMAGE_TAG}/salama-java-${IMAGE_TAG}.jar \
+                    || echo "❌ Artefact Nexus introuvable"
                 '''
             }
         }
@@ -121,7 +160,9 @@ pipeline {
 
     post {
         always {
-            echo '✅ Pipeline terminé — nettoyage...'
+            echo '======================'
+            echo '🧼 Nettoyage final du pipeline'
+            echo '======================'
             sh '''
                 docker container prune -f
                 docker image prune -f
@@ -129,7 +170,7 @@ pipeline {
             '''
         }
         failure {
-            echo '❌ Pipeline échoué. Vérifie les logs.'
+            echo '❌ Pipeline échoué. Vérifie les logs pour plus de détails.'
         }
     }
 }
