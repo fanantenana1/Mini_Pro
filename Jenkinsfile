@@ -8,22 +8,21 @@ pipeline {
         IMAGE_NAME     = 'flask-hello'
         IMAGE_TAG      = 'latest'
         DOCKER_IMAGE   = "${IMAGE_NAME}:${IMAGE_TAG}"
+        DOCKER_HUB     = "haaa012/${IMAGE_NAME}:${IMAGE_TAG}"
+        MAVEN_HOME     = '/opt/maven'
+        SONARQUBE_ENV  = 'SonarQubeEnv'
+        SONAR_TOKEN    = credentials('sonar-token')
     }
 
     stages {
-        stage('Checkout') {
+
+        stage('📁 Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Debug Path') {
-            steps {
-                sh 'pwd && ls -la'
-            }
-        }
-
-        stage('Cleanup Docker') {
+        stage('🧹 Cleanup Docker') {
             steps {
                 sh '''
                     docker container prune -f
@@ -33,92 +32,95 @@ pipeline {
             }
         }
 
-        stage('Build Docker image') {
+        stage('🔍 Analyse SonarQube') {
             steps {
-                dir('flask_app') {
-                    sh "docker build -t ${DOCKER_IMAGE} ."
+                withSonarQubeEnv(SONARQUBE_ENV) {
+                    sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.projectKey=salama_java -Dsonar.login=${SONAR_TOKEN}"
                 }
             }
         }
 
-        stage('Run Tests') {
+        stage('🔨 Build Docker image') {
             steps {
-                sh '''
-                    echo "🧪 Tests unitaires..."
-                    # docker run --rm ${DOCKER_IMAGE} pytest
-                '''
+                dir('flask_app') {
+                    sh 'docker build -t ${DOCKER_IMAGE} .'
+                }
             }
         }
 
-        stage('Test serveur') {
+        stage('🧪 Tests unitaires') {
+            steps {
+                sh 'echo "Tests à insérer ici..."'
+                // Exemple : docker run --rm ${DOCKER_IMAGE} pytest
+            }
+        }
+
+        stage('🧬 Test serveur Flask') {
             steps {
                 sh '''
-                    echo "🔬 Test du serveur Flask local..."
-                    docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE} || echo "❌ Erreur lancement conteneur"
+                    docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE}
                     sleep 5
-                    curl -I http://localhost:5000 || echo "❌ Serveur ne répond pas"
+                    curl -sI http://localhost:5000 || echo "❌ Serveur KO"
                     docker stop test-server || true
                     docker rm test-server || true
                 '''
             }
         }
 
-        stage('Verify Minikube Access & Permissions') {
+        stage('🛡️ Verify Minikube Access') {
             steps {
                 sh '''
-                    echo "✅ Vérification Minikube..."
-
-                    ls -ld "$MINIKUBE_HOME" || echo "❌ MINIKUBE_HOME inaccessible"
-                    ls -l "$KUBECONFIG" || echo "❌ KUBECONFIG manquant"
-
-                    minikube status || echo "❌ Minikube KO"
-                    kubectl version --client || echo "❌ kubectl KO"
-                    kubectl get nodes || echo "❌ Noeuds indisponibles"
+                    ls -ld "$MINIKUBE_HOME"
+                    ls -l "$KUBECONFIG"
+                    minikube status
+                    kubectl version --client
+                    kubectl get nodes
                 '''
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('🚀 Deploy to Kubernetes') {
             when {
-                expression {
-                    fileExists(env.KUBECONFIG)
-                }
+                expression { fileExists(env.KUBECONFIG) }
             }
             steps {
                 sh '''
-                    echo "🚀 Déploiement Kubernetes..."
                     kubectl apply -f flask_app/kubernetes/deployment.yaml
                     kubectl apply -f flask_app/kubernetes/service.yaml
                 '''
             }
         }
 
-        stage('Post-deploy Checks') {
+        stage('🔎 Post-deploy Checks') {
             steps {
                 sh '''
-                    echo "🔍 Vérification du déploiement..."
                     kubectl get pods
                     kubectl get services
                 '''
             }
         }
 
-        stage('Pousser vers Docker Hub') {
+        stage('📦 Push vers Docker Hub') {
             steps {
                 withDockerRegistry(credentialsId: 'docker-hub-creds', url: '') {
                     sh '''
-                        echo "📦 Push Docker Hub..."
-                        docker tag ${DOCKER_IMAGE} haaa012/${IMAGE_NAME}:${IMAGE_TAG}
-                        docker push haaa012/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker tag ${DOCKER_IMAGE} ${DOCKER_HUB}
+                        docker push ${DOCKER_HUB}
                     '''
                 }
+            }
+        }
+
+        stage('📤 Déployer vers Nexus') {
+            steps {
+                sh "${MAVEN_HOME}/bin/mvn deploy -DaltDeploymentRepository=nexus::default::http://localhost:8081/repository/maven-releases/"
             }
         }
     }
 
     post {
         always {
-            echo '✔️ Pipeline terminé. Nettoyage...'
+            echo '🧼 Nettoyage final...'
             sh '''
                 docker container prune -f
                 docker image prune -f
