@@ -47,15 +47,16 @@ pipeline {
         }
 
         // --- Nouvelle étape de sécurisation - Audit des dépendances ---
-       stage('Security Audit') {
+        stage('Security Audit') {
             steps {
                 sh '''
                     python3 -m venv .audit-env
-                    source .audit-env/bin/activate
-                    pip install --upgrade pip
-                    pip install pip-audit
-                    pip-audit || echo "⚠️ Vulnérabilités détectées dans les dépendances"
-                    deactivate
+                    bash -c "
+                        source .audit-env/bin/activate && \
+                        pip install --upgrade pip && \
+                        pip install pip-audit && \
+                        pip-audit || echo '⚠️ Vulnérabilités détectées dans les dépendances'
+                    "
                     rm -rf .audit-env
                 '''
             }
