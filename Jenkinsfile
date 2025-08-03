@@ -2,10 +2,12 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE   = 'flask-app:latest'
         HOME           = '/var/lib/jenkins'
-         KUBECONFIG = '/var/lib/jenkins/.kube/config'
+        MINIKUBE_HOME  = '/var/lib/jenkins/.minikube'
         KUBECONFIG     = '/var/lib/jenkins/.kube/config'
+        IMAGE_NAME     = 'flask-hello'
+        IMAGE_TAG      = 'latest'
+        DOCKER_IMAGE   = "${IMAGE_NAME}:${IMAGE_TAG}"
     }
 
     stages {
