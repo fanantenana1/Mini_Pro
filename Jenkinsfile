@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKER_IMAGE   = 'flask-app:latest'
         HOME           = '/var/lib/jenkins'
-        MINIKUBE_HOME  = '/var/lib/jenkins/.minikube'
+         KUBECONFIG = '/var/lib/jenkins/.kube/config'
         KUBECONFIG     = '/var/lib/jenkins/.kube/config'
     }
 
