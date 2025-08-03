@@ -28,9 +28,14 @@ pipeline {
         }
 
         stage('🔍 Analyse SonarQube Python') {
+            when {
+                expression { fileExists('flask_app/.sonar-project.properties') }
+            }
             steps {
-                echo '🔍 Analyse du code Flask avec SonarQube Scanner CLI'
-                withSonarQubeEnv('sonar') {
+                echo '======================'
+                echo '🔍 Étape 2 : Analyse du code Flask avec SonarQube'
+                echo '======================'
+                withSonarQubeEnv("${SONARQUBE_ENV}") {
                     dir('flask_app') {
                         sh 'sonar-scanner -Dsonar.login=$SONAR_TOKEN'
                     }
