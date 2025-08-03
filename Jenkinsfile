@@ -27,12 +27,12 @@ pipeline {
             }
         }
 
-        stage('🔍 Analyse SonarQube') {
+        stage('🔍 Analyse SonarQube Python') {
             steps {
-                echo '🔍 Étape : Analyse du code Flask avec SonarQube'
+                echo '🔍 Analyse du code Flask avec SonarQube Scanner CLI'
                 withSonarQubeEnv('sonar') {
                     dir('flask_app') {
-                        sh 'sonar-scanner -Dsonar.login=${SONAR_TOKEN}'
+                        sh 'sonar-scanner -Dsonar.login=$SONAR_TOKEN'
                     }
                 }
             }
