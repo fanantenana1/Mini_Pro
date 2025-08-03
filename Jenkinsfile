@@ -2,9 +2,10 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = 'flask-app:latest'
-        MINIKUBE_HOME = '/home/m3/.minikube'
-        KUBECONFIG = '/home/m3/.kube/config'
+        DOCKER_IMAGE   = 'flask-app:latest'
+        HOME           = '/var/lib/jenkins'
+        MINIKUBE_HOME  = '/var/lib/jenkins/.minikube'
+        KUBECONFIG     = '/var/lib/jenkins/.kube/config'
     }
 
     stages {
@@ -42,23 +43,35 @@ pipeline {
             steps {
                 sh '''
                     echo "Running tests..."
-                    # Ajoute ici des tests si nécessaires
                     # docker run --rm ${DOCKER_IMAGE} pytest
                 '''
             }
         }
-        stage('Verify Minikube & Permissions') {
+
+        stage('Verify Minikube Access & Permissions') {
             steps {
                 sh '''
                     echo "✅ Vérification de Minikube..."
-                    minikube status
-                    kubectl version --client
-                    kubectl get nodes
+
+                    echo "🔍 Dossier MINIKUBE_HOME :"
+                    ls -ld "$MINIKUBE_HOME" || echo "❌ Dossier non accessible"
+
+                    echo "🔍 Fichier KUBECONFIG :"
+                    ls -l "$KUBECONFIG" || echo "❌ Fichier non accessible"
+
+                    minikube status || echo "❌ Minikube ne répond pas"
+                    kubectl version --client || echo "❌ kubectl ne répond pas"
+                    kubectl get nodes || echo "❌ Impossible de lister les nœuds"
                 '''
             }
         }
 
         stage('Deploy to Kubernetes') {
+            when {
+                expression {
+                    fileExists(env.KUBECONFIG)
+                }
+            }
             steps {
                 sh '''
                     echo "🚀 Déploiement sur Minikube..."
