@@ -9,9 +9,9 @@ pipeline {
         IMAGE_TAG      = 'latest'
         DOCKER_IMAGE   = "${IMAGE_NAME}:${IMAGE_TAG}"
         DOCKER_HUB     = "haaa012/${IMAGE_NAME}:${IMAGE_TAG}"
-        MAVEN_HOME     = '/opt/maven'
-        SONARQUBE_ENV  = 'SonarQubeEnv'
-        SONAR_TOKEN    = credentials('sonar-token')
+        SONARQUBE_ENV = 'sonar'                           // Nom du serveur Sonar dans Jenkins
+        SONAR_TOKEN = credentials('sonar-token')          // Token Sonar (stocké dans Jenkins Credentials)
+        MAVEN_HOME = tool name: 'maven', type: 'maven'    // Nom de Maven configuré dans Jenkins        
     }
 
     stages {
