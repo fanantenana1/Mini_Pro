@@ -37,7 +37,7 @@ pipeline {
                 echo '======================'
                 withSonarQubeEnv("${SONARQUBE_ENV}") {
                     dir('flask_app') {
-                        sh 'sonar-scanner -Dsonar.login=$SONAR_TOKEN'
+                        sh "sonar-scanner -Dsonar.login=${SONAR_TOKEN}"
                     }
                 }
             }
