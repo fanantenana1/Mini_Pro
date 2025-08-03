@@ -94,8 +94,19 @@ pipeline {
                 script {
                     try {
                         sh "docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE}"
-                        sh "sleep 5"
-                        sh "curl -s http://localhost:5000 || echo '❌ Serveur Flask inaccessible'"
+        
+                        // 🔄 Attente + test de connectivité
+                        sh """
+                            for i in {1..10}; do
+                                sleep 2
+                                if curl -s http://localhost:5000; then
+                                    echo '✅ Serveur Flask accessible'
+                                    exit 0
+                                fi
+                            done
+                            echo '❌ Serveur Flask inaccessible après 20 secondes'
+                            exit 1
+                        """
                     } finally {
                         sh "docker stop test-server || true"
                         sh "docker rm test-server || true"
