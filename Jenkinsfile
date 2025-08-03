@@ -141,13 +141,26 @@ pipeline {
                 }
             }
         }
-        stage('Push vers Nexus Docker Registry') {
+        stage('Push Docker Image to Nexus') {
             steps {
-                sh """
-                    docker build -t localhost:8082/my-flask-app:latest .
-                    docker tag localhost:8082/my-flask-app:latest nexus-host:8082/my-flask-app:latest
-                    docker push nexus-host:8082/my-flask-app:latest
-                """
+                withCredentials([usernamePassword(credentialsId: 'nexus-credentials', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                    script {
+                        def nexusRepo = "nexus.local:8082/repository/docker-hosted" // Remplace par ton vrai domaine
+                        def imageName = "${nexusRepo}/flask-hello:latest"
+        
+                        // Tag l'image vers Nexus
+                        sh "docker tag flask-hello:latest ${imageName}"
+        
+                        // Login Nexus avec ton compte 'Nyxus'
+                        sh "echo ${NEXUS_PASS} | docker login ${nexusRepo} -u ${NEXUS_USER} --password-stdin"
+        
+                        // Push vers Nexus
+                        sh "docker push ${imageName}"
+        
+                        // Déconnexion
+                        sh "docker logout ${nexusRepo}"
+                    }
+                }
             }
         }
 
