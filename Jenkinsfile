@@ -148,13 +148,23 @@ pipeline {
                 echo '📦 Étape 10 : Push vers Nexus'
                 echo '======================'
                 script {
-                    docker.withRegistry(NEXUS_REPO, NEXUS_CREDS) {
-                        def appImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
-                        appImage.push("${IMAGE_TAG}")
+                    def nexusRegistry = 'nexus.mycompany.com:8083'  // adapte au tien
+                    def imageName = 'flask-hello'
+                    def version = 'v93'
+                    def fullTag = "${nexusRegistry}/${imageName}:${version}"
+        
+                    // Auth Nexus (si nécessaire)
+                    withCredentials([usernamePassword(credentialsId: 'nexus-creds', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+                        sh "docker login ${nexusRegistry} -u $NEXUS_USER -p $NEXUS_PASS"
                     }
+        
+                    // Tag + push
+                    sh "docker tag ${imageName}:${version} ${fullTag}"
+                    sh "docker push ${fullTag}"
                 }
             }
         }
+
 
         stage('🔎 Nexus Check') {
             steps {
