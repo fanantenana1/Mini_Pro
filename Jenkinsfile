@@ -47,15 +47,17 @@ pipeline {
         }
 
         // --- Nouvelle étape de sécurisation - Audit des dépendances ---
-        stage('Audit des dépendances (Sécurité)') {
+       stage('Security Audit') {
             steps {
-                echo 'Étape 4 : Audit des dépendances Python avec pip-audit'
-                dir('flask_app') {
-                    sh '''
-                        pip install pip-audit
-                        pip-audit || echo "⚠️ Vulnérabilités détectées dans les dépendances"
-                    '''
-                }
+                sh '''
+                    python3 -m venv .audit-env
+                    source .audit-env/bin/activate
+                    pip install --upgrade pip
+                    pip install pip-audit
+                    pip-audit || echo "⚠️ Vulnérabilités détectées dans les dépendances"
+                    deactivate
+                    rm -rf .audit-env
+                '''
             }
         }
 
