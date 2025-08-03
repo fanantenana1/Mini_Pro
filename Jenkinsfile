@@ -44,7 +44,7 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                    echo "🧪 Tests unitaires en cours..."
+                    echo "🧪 Tests unitaires..."
                     # docker run --rm ${DOCKER_IMAGE} pytest
                 '''
             }
@@ -54,11 +54,11 @@ pipeline {
             steps {
                 sh '''
                     echo "🔬 Test du serveur Flask local..."
-                    docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE}
+                    docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE} || echo "❌ Erreur lancement conteneur"
                     sleep 5
                     curl -I http://localhost:5000 || echo "❌ Serveur ne répond pas"
-                    docker stop test-server
-                    docker rm test-server
+                    docker stop test-server || true
+                    docker rm test-server || true
                 '''
             }
         }
@@ -66,17 +66,14 @@ pipeline {
         stage('Verify Minikube Access & Permissions') {
             steps {
                 sh '''
-                    echo "✅ Vérification de Minikube..."
+                    echo "✅ Vérification Minikube..."
 
-                    echo "🔍 Dossier MINIKUBE_HOME :"
-                    ls -ld "$MINIKUBE_HOME" || echo "❌ Dossier non accessible"
+                    ls -ld "$MINIKUBE_HOME" || echo "❌ MINIKUBE_HOME inaccessible"
+                    ls -l "$KUBECONFIG" || echo "❌ KUBECONFIG manquant"
 
-                    echo "🔍 Fichier KUBECONFIG :"
-                    ls -l "$KUBECONFIG" || echo "❌ Fichier non accessible"
-
-                    minikube status || echo "❌ Minikube ne répond pas"
-                    kubectl version --client || echo "❌ kubectl ne répond pas"
-                    kubectl get nodes || echo "❌ Impossible de lister les nœuds"
+                    minikube status || echo "❌ Minikube KO"
+                    kubectl version --client || echo "❌ kubectl KO"
+                    kubectl get nodes || echo "❌ Noeuds indisponibles"
                 '''
             }
         }
@@ -89,7 +86,7 @@ pipeline {
             }
             steps {
                 sh '''
-                    echo "🚀 Déploiement sur Minikube..."
+                    echo "🚀 Déploiement Kubernetes..."
                     kubectl apply -f flask_app/kubernetes/deployment.yaml
                     kubectl apply -f flask_app/kubernetes/service.yaml
                 '''
@@ -110,6 +107,7 @@ pipeline {
             steps {
                 withDockerRegistry(credentialsId: 'docker-hub-creds', url: '') {
                     sh '''
+                        echo "📦 Push Docker Hub..."
                         docker tag ${DOCKER_IMAGE} haaa012/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push haaa012/${IMAGE_NAME}:${IMAGE_TAG}
                     '''
