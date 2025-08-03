@@ -77,8 +77,8 @@ pipeline {
             steps {
                 sh '''
                     echo "🚀 Déploiement sur Minikube..."
-                    kubectl apply -f flask_app/kube/deployment.yaml
-                    kubectl apply -f flask_app/kube/service.yaml
+                    kubectl apply -f flask_app/kubernetes/deployment.yaml
+                    kubectl apply -f flask_app/kubernetes/service.yaml
                 '''
             }
         }
