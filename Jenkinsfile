@@ -31,20 +31,22 @@ pipeline {
                 sh 'sonar-scanner -v || echo "Scanner Sonar introuvable"'
             }
         }
-
+        
         stage('Analyse statique du code') {
             when {
                 expression { fileExists('flask_app/.sonar-project.properties') }
             }
             steps {
                 echo 'Étape 3 : Analyse du code avec SonarQube'
-                withSonarQubeEnv("${SONARQUBE_ENV}") {
-                    dir('flask_app') {
+                dir('flask_app') {
+                    withSonarQubeEnv("${SONARQUBE_ENV}") {
+                        // On lance le scanner depuis le dossier contenant .sonar-project.properties
                         sh "sonar-scanner -Dsonar.login=${SONAR_TOKEN} || echo 'Analyse échouée'"
                     }
                 }
             }
         }
+
 
         // --- Nouvelle étape de sécurisation - Audit des dépendances ---
         stage('Security Audit') {
