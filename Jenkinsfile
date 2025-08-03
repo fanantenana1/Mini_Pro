@@ -14,6 +14,7 @@ pipeline {
         MAVEN_HOME     = tool name: 'maven', type: 'maven'
         NEXUS_REPO     = 'http://localhost:8082'
         NEXUS_CREDS    = 'nexus-creds'
+        PATH           = "/opt/sonar-scanner/bin:$PATH" // <- Ajouté
     }
 
     stages {
@@ -27,6 +28,15 @@ pipeline {
             }
         }
 
+        stage('✅ Vérification Sonar Scanner') {
+            steps {
+                echo '======================'
+                echo '✅ Étape préliminaire : Vérification du scanner Sonar'
+                echo '======================'
+                sh 'sonar-scanner -v || echo "❌ Scanner Sonar introuvable"'
+            }
+        }
+
         stage('🔍 Analyse SonarQube Python') {
             when {
                 expression { fileExists('flask_app/.sonar-project.properties') }
@@ -37,12 +47,12 @@ pipeline {
                 echo '======================'
                 withSonarQubeEnv("${SONARQUBE_ENV}") {
                     dir('flask_app') {
-                        echo "🔐 SONAR_TOKEN = ${SONAR_TOKEN}"
+                        sh "sonar-scanner -Dsonar.login=${SONAR_TOKEN} || echo '❌ Analyse SonarQube échouée'"
                     }
                 }
             }
         }
-        
+
         stage('🧹 Docker Cleanup') {
             steps {
                 echo '======================'
@@ -81,13 +91,16 @@ pipeline {
                 echo '======================'
                 echo '🧬 Étape 6 : Test du serveur Flask'
                 echo '======================'
-                sh '''
-                    docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE}
-                    sleep 5
-                    curl -s http://localhost:5000 || echo "❌ Serveur Flask inaccessible"
-                    docker stop test-server || true
-                    docker rm test-server || true
-                '''
+                script {
+                    try {
+                        sh "docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE}"
+                        sh "sleep 5"
+                        sh "curl -s http://localhost:5000 || echo '❌ Serveur Flask inaccessible'"
+                    } finally {
+                        sh "docker stop test-server || true"
+                        sh "docker rm test-server || true"
+                    }
+                }
             }
         }
 
