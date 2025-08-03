@@ -29,15 +29,15 @@ pipeline {
 
         stage('🔍 Analyse SonarQube') {
             steps {
-                echo '======================'
-                echo '🔍 Étape 2 : Analyse du code avec SonarQube'
-                echo '======================'
-                withSonarQubeEnv(SONARQUBE_ENV) {
-                    sh "${MAVEN_HOME}/bin/mvn sonar:sonar -Dsonar.projectKey=salama_java -Dsonar.login=${SONAR_TOKEN}"
+                echo '🔍 Étape : Analyse du code Flask avec SonarQube'
+                withSonarQubeEnv('sonar') {
+                    dir('flask_app') {
+                        sh 'sonar-scanner -Dsonar.login=${SONAR_TOKEN}'
+                    }
                 }
             }
         }
-
+        
         stage('🧹 Docker Cleanup') {
             steps {
                 echo '======================'
