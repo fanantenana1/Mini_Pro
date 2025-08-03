@@ -1,63 +1,67 @@
 pipeline {
     agent any
-
     environment {
-        HOME           = '/var/lib/jenkins'
-        MINIKUBE_HOME  = '/var/lib/jenkins/.minikube'
-        KUBECONFIG     = '/var/lib/jenkins/.kube/config'
-        IMAGE_NAME     = 'flask-hello'
-        IMAGE_TAG      = "v${BUILD_ID}"
-        DOCKER_IMAGE   = "${IMAGE_NAME}:${IMAGE_TAG}"
-        DOCKER_HUB     = "haaa012/${DOCKER_IMAGE}"
-        SONARQUBE_ENV  = 'sonar'
-        SONAR_TOKEN    = credentials('sonar-token')
-        MAVEN_HOME     = tool name: 'maven', type: 'maven'
-        NEXUS_REPO     = 'http://localhost:8082'
-        NEXUS_CREDS    = 'nexus-creds'
-        PATH           = "/opt/sonar-scanner/bin:$PATH" // <- Ajouté
+        HOME = '/var/lib/jenkins'
+        MINIKUBE_HOME = '/var/lib/jenkins/.minikube'
+        KUBECONFIG = '/var/lib/jenkins/.kube/config'
+        IMAGE_NAME = 'flask-hello'
+        IMAGE_TAG = "v${BUILD_ID}"
+        DOCKER_IMAGE = "${IMAGE_NAME}:${IMAGE_TAG}"
+        DOCKER_HUB = "haaa012/${DOCKER_IMAGE}"
+        SONARQUBE_ENV = 'sonar'
+        SONAR_TOKEN = credentials('sonar-token')
+        MAVEN_HOME = tool name: 'maven', type: 'maven'
+        NEXUS_REPO = 'http://localhost:8082'
+        NEXUS_CREDS = 'nexus-creds'
+        PATH = "/opt/sonar-scanner/bin:$PATH"
     }
 
     stages {
 
-        stage('📁 Checkout') {
+        stage('Récupération du code source') {
             steps {
-                echo '======================'
-                echo '📁 Étape 1 : Clonage du code source'
-                echo '======================'
+                echo 'Étape 1 : Clonage du dépôt source'
                 checkout scm
             }
         }
 
-        stage('✅ Vérification Sonar Scanner') {
+        stage('Vérification du scanner SonarQube') {
             steps {
-                echo '======================'
-                echo '✅ Étape préliminaire : Vérification du scanner Sonar'
-                echo '======================'
-                sh 'sonar-scanner -v || echo "❌ Scanner Sonar introuvable"'
+                echo 'Étape 2 : Vérification de la disponibilité du scanner SonarQube'
+                sh 'sonar-scanner -v || echo "Scanner Sonar introuvable"'
             }
         }
 
-        stage('🔍 Analyse SonarQube Python') {
+        stage('Analyse statique du code') {
             when {
                 expression { fileExists('flask_app/.sonar-project.properties') }
             }
             steps {
-                echo '======================'
-                echo '🔍 Étape 2 : Analyse du code Flask avec SonarQube'
-                echo '======================'
+                echo 'Étape 3 : Analyse du code avec SonarQube'
                 withSonarQubeEnv("${SONARQUBE_ENV}") {
                     dir('flask_app') {
-                        sh "sonar-scanner -Dsonar.login=${SONAR_TOKEN} || echo '❌ Analyse SonarQube échouée'"
+                        sh "sonar-scanner -Dsonar.login=${SONAR_TOKEN} || echo 'Analyse échouée'"
                     }
                 }
             }
         }
 
-        stage('🧹 Docker Cleanup') {
+        // --- Nouvelle étape de sécurisation - Audit des dépendances ---
+        stage('Audit des dépendances (Sécurité)') {
             steps {
-                echo '======================'
-                echo '🧹 Étape 3 : Nettoyage Docker'
-                echo '======================'
+                echo 'Étape 4 : Audit des dépendances Python avec pip-audit'
+                dir('flask_app') {
+                    sh '''
+                        pip install pip-audit
+                        pip-audit || echo "⚠️ Vulnérabilités détectées dans les dépendances"
+                    '''
+                }
+            }
+        }
+
+        stage('Nettoyage Docker avant build') {
+            steps {
+                echo 'Étape 5 : Nettoyage des ressources Docker'
                 sh '''
                     docker container prune -f
                     docker image prune -f
@@ -66,61 +70,59 @@ pipeline {
             }
         }
 
-        stage('🔨 Docker Build') {
+        stage('Construction de l’image Docker') {
             steps {
-                echo '======================'
-                echo '🔨 Étape 4 : Construction de l’image Docker'
-                echo '======================'
+                echo 'Étape 6 : Construction de l’image Docker de l’application'
                 dir('flask_app') {
                     sh "docker build -t ${DOCKER_IMAGE} ."
                 }
             }
         }
 
-        stage('🧪 Tests unitaires') {
+        // --- Nouvelle étape de sécurisation - Scan vulnérabilités image Docker ---
+        stage('Scan des vulnérabilités Docker (Sécurité)') {
             steps {
-                echo '======================'
-                echo '🧪 Étape 5 : Exécution des tests unitaires'
-                echo '======================'
-                sh "docker run --rm ${DOCKER_IMAGE} pytest || echo '❌ Tests échoués'"
+                echo 'Étape 7 : Scan de sécurité de l’image Docker avec Trivy'
+                sh '''
+                    trivy image ${DOCKER_IMAGE} || echo "⚠️ Vulnérabilités détectées dans l’image Docker"
+                '''
             }
         }
-        stage('Test serveur') {
+
+        stage('Tests unitaires') {
             steps {
+                echo 'Étape 8 : Lancement des tests unitaires via Docker'
+                sh "docker run --rm ${DOCKER_IMAGE} pytest || echo 'Tests échoués'"
+            }
+        }
+
+        stage('Test du serveur (Flask)') {
+            steps {
+                echo 'Étape 9 : Déploiement local et test du serveur Flask'
                 sh '''
-                    echo "🔬 Test du serveur Flask local..."
-                    docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE} || echo "❌ Erreur lancement conteneur"
+                    docker run -d --name test-server -p 5000:5000 ${DOCKER_IMAGE} || echo "Erreur au lancement du conteneur"
                     sleep 5
-                    curl -I http://localhost:5000 || echo "❌ Serveur ne répond pas"
+                    curl -I http://localhost:5000 || echo "Serveur non réactif"
                     docker stop test-server || true
                     docker rm test-server || true
                 '''
             }
         }
 
-        stage('🛡️ Minikube Check') {
+        stage('Vérification de l’environnement Kubernetes') {
             steps {
-                echo '======================'
-                echo '🛡️ Étape 7 : Vérification de Minikube'
-                echo '======================'
+                echo 'Étape 10 : Vérification de Minikube et des ressources Kubernetes'
                 sh '''
-                    echo "✅ Vérification du fichier KUBECONFIG"
                     test -f "$KUBECONFIG" || exit 1
-
-                    echo "✅ Statut Minikube"
                     minikube status || exit 1
-
-                    echo "✅ Nœuds Kubernetes"
                     kubectl get nodes || exit 1
                 '''
             }
         }
 
-        stage('🚀 Deploy to Kubernetes') {
+        stage('Déploiement sur Kubernetes') {
             steps {
-                echo '======================'
-                echo '🚀 Étape 8 : Déploiement dans le cluster Kubernetes'
-                echo '======================'
+                echo 'Étape 11 : Déploiement de l’application sur le cluster Kubernetes'
                 sh '''
                     kubectl apply -f flask_app/kubernetes/deployment.yaml
                     kubectl apply -f flask_app/kubernetes/service.yaml
@@ -128,11 +130,9 @@ pipeline {
             }
         }
 
-        stage('📦 Push Docker Hub') {
+        stage('Publication de l’image sur Docker Hub') {
             steps {
-                echo '======================'
-                echo '📦 Étape 9 : Push vers Docker Hub'
-                echo '======================'
+                echo 'Étape 12 : Push de l’image Docker sur Docker Hub'
                 withDockerRegistry(credentialsId: 'docker-hub-creds', url: '') {
                     sh '''
                         docker tag ${DOCKER_IMAGE} ${DOCKER_HUB}
@@ -141,13 +141,12 @@ pipeline {
                 }
             }
         }
+
     }
 
     post {
         always {
-            echo '======================'
-            echo '🧼 Nettoyage final du pipeline'
-            echo '======================'
+            echo 'Nettoyage post-pipeline'
             sh '''
                 docker container prune -f
                 docker image prune -f
@@ -155,7 +154,7 @@ pipeline {
             '''
         }
         failure {
-            echo '❌ Pipeline échoué. Vérifie les logs pour plus de détails.'
+            echo 'Pipeline échoué. Veuillez consulter les logs.'
         }
     }
 }
