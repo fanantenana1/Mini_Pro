@@ -111,11 +111,17 @@ pipeline {
             }
         }
 
-        stage('📤 Déployer vers Nexus') {
+        stage('Push to Nexus') {
             steps {
-                sh "${MAVEN_HOME}/bin/mvn deploy -DaltDeploymentRepository=nexus::default::http://localhost:8081/repository/maven-releases/"
+                script {
+                    docker.withRegistry('http://localhost:8082', 'nexus-creds') {
+                        def appImage = docker.build("flask_app:1.0")
+                        appImage.push("1.0")
+                    }
+                }
             }
         }
+
     }
 
     post {
