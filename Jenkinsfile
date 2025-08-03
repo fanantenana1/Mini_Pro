@@ -144,7 +144,7 @@ pipeline {
 
          stage('Déployer vers Nexus') {
             steps {
-                sh "${MAVEN_HOME}/bin/mvn deploy -DaltDeploymentRepository=nexus::default::http://localhost:8081/repository/maven-releases/"
+                sh "${MAVEN_HOME}/bin/mvn deploy -DaltDeploymentRepository=nexus::default::http://localhost:8082/repository/maven-releases/"
             }
         }
 
