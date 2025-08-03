@@ -141,39 +141,6 @@ pipeline {
                 }
             }
         }
-        stage('Push Docker Image to Nexus') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'nexus-credentials', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
-                    script {
-                        def NEXUS_HOST = "192.168.101.11:8082" // 🔁 Remplacer par l’IP réelle
-        
-                        sh """
-                            echo 🔁 Tag de l’image...
-                            docker tag flask-hello:latest ${NEXUS_HOST}/repository/docker-hosted/flask-hello:latest
-        
-                            echo 🔐 Connexion à Nexus...
-                            echo "${NEXUS_PASS}" | docker login ${NEXUS_HOST}/repository/docker-hosted -u "${NEXUS_USER}" --password-stdin
-        
-                            echo 🚀 Envoi vers Nexus...
-                            docker push ${NEXUS_HOST}/repository/docker-hosted/flask-hello:latest
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('🔎 Nexus Check') {
-            steps {
-                echo '======================'
-                echo '🔎 Étape 11 : Vérification du dépôt Nexus'
-                echo '======================'
-                sh '''
-                    curl -s -I ${NEXUS_REPO}/repository/maven-releases/com/example/salama-java/${IMAGE_TAG}/salama-java-${IMAGE_TAG}.jar \
-                    || echo "❌ Artefact Nexus introuvable"
-                '''
-            }
-        }
-
     }
 
     post {
