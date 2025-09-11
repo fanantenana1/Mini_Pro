@@ -140,9 +140,7 @@ pipeline {
                 echo 'Étape 12 : Push de l’image Docker sur Docker Hub'
                 withDockerRegistry(credentialsId: 'docker-hub-creds', url: '') {
                     sh '''
-                        # Tag l'image locale avec le nom Docker Hub complet
-                        docker tag ${DOCKER_IMAGE} ${DOCKER_HUB}                
-                        # Push vers Docker Hub
+                        docker tag ${DOCKER_IMAGE} ${DOCKER_HUB}
                         docker push ${DOCKER_HUB}
                     '''
                 }
