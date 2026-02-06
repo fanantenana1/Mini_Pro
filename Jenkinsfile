@@ -12,7 +12,7 @@ pipeline {
         SONAR_TOKEN = credentials('sonar-token')
         MAVEN_HOME = tool name: 'maven', type: 'maven'
         NEXUS_REPO = 'http://localhost:8082'
-        NEXUS_CREDS = 'nexus-creds'
+        NEXUS_CREDS = 'nexus-credentials'
         PATH = "/opt/sonar-scanner/bin:$PATH"
     }
 
